@@ -7,6 +7,14 @@
 # binary, for any purpose, commercial or non-commercial, and by any
 # means.
 
+#Info importante de cosas que me dieron problemas para hacer setup:
+#
+#El script asume que la estructura del dump esta compuesta en este orden:
+#/data/data/com.klab.lovelive.allstars.global/files/files/(METER EL SCRIPT ACA)
+#Tambien es necesario tener el shared_prefs, yo lo consigo haciendo un backup con ADB (android device bridge), convirtiendolo a un comprimido con ABE (android backup extractor) y sacando la carpeta "sp" del comprimido, dentro de esa carpeta estan los datos de shared_prefs/
+#mover la carpeta shared_prefs/ a la ruta /data/data/ junto a la otra carpeta llamada com.klab.lovelive.allstars.global
+#USAR SI O SI LINUX porque python da problemas en windows (cuando no)
+
 import apsw
 import os.path
 import sys
@@ -209,29 +217,33 @@ def decrypt_worker(pkey, source, table, pack_name, head, size, key1, key2):
   fpath = os.path.join(dstdir, "%s_%d" % (pack_name, head)) # F path is set here
   pkgpath = os.path.join(source, "pkg" + pack_name[:1], pack_name)
   key = [key1, key2, 0x3039]
-  pkg = codecs.open(pkgpath, mode='rb', encoding='klbvfs', errors=key)
-  pkg.seek(head)
-  buf = pkg.read(1024)
-  mime = magic.from_buffer(buf, mime=True)
-  ext = mimetypes.guess_extension(mime)
-  if mime == 'application/octet-stream':
-    if buf.startswith(b'UnityFS'):
-      mime = "application/unityfs"
-      ext = ".unity3d"
-    elif table == 'adv_script':
-      # proprietary script format, TODO reverse engineer it
-      mime = "application/advscript"
-      ext = ".advscript"
-  key[0] = key1  # hack: reset rng state, codec has reference to this array
-  key[1] = key2
-  key[2] = 0x3039
-  pkg.seek(head)
-  print("[%s] decrypting to %s (%s)" % (fpath, ext, mime))
-  with open(fpath + ext, 'wb+') as dst: # Add error checking?
-    shutil.copyfileobj(pkg, dst, size)
-  pkg.close()
-  return fpath
-
+  try:
+    pkg = codecs.open(pkgpath, mode='rb', encoding='klbvfs', errors=key)
+    pkg.seek(head)
+    buf = pkg.read(1024)
+    mime = magic.from_buffer(buf, mime=True)
+    ext = mimetypes.guess_extension(mime)
+    if mime == 'application/octet-stream':
+      if buf.startswith(b'UnityFS'):
+        mime = "application/unityfs"
+        ext = ".unity3d"
+      elif table == 'adv_script':
+        # proprietary script format, TODO reverse engineer it
+        mime = "application/advscript"
+        ext = ".advscript"
+    key[0] = key1  # hack: reset rng state, codec has reference to this array
+    key[1] = key2
+    key[2] = 0x3039
+    pkg.seek(head)
+    print("[%s] decrypting to %s (%s)" % (fpath, ext, mime))
+    with open(fpath + ext, 'wb+') as dst: # Add error checking?
+      shutil.copyfileobj(pkg, dst, size)
+    pkg.close()
+    return fpath
+  except FileNotFoundError:
+    #just prevents crash when the phone data dump is not a full dump
+    print("File not found!")
+    pass
 
 def dump_table(dbpath, source, table):
   print("Dumping tables...")
@@ -244,6 +256,7 @@ def dump_table(dbpath, source, table):
   #sel = 'select distinct pack_name, head, size, key1, key2 from ' + table
   sel = 'SELECT distinct m_asset_package_mapping.package_key,'+table+'.pack_name, '+table+'.head, '+table+'.size, '+table+'.key1, '+table+'.key2 FROM '+table+' INNER JOIN m_asset_package_mapping ON m_asset_package_mapping.pack_name = '+table+'.pack_name'
   print(sel)
+  
   with mp.Pool() as p:
     results = []
     f = decrypt_worker
