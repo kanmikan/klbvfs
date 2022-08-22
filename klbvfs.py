@@ -376,7 +376,7 @@ if __name__ == "__main__":
   types = ['texture', 'live2d_sd_model', 'member_model', 'member_sd_model',
            'background', 'shader', 'skill_effect', 'stage', 'stage_effect',
            'skill_timeline', 'skill_wipe', 'adv_script',
-           'gacha_performance', 'navi_motion', 'navi_timeline']
+           'gacha_performance', 'navi_motion', 'navi_timeline', 'live_timeline']
   desc = 'types of assets. supported values: ' + ', '.join(types)
   dump.add_argument('--types', dest='types', nargs='*', metavar='',
                     choices=types, default=types, help=desc)
