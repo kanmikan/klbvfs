@@ -91,10 +91,13 @@ class KLBVFS(apsw.VFS):
 
 class KLBVFSFile(apsw.VFSFile):
   def __init__(self, inheritfromvfsname, filename, flags):
-    split = filename.filename().split(' ', 2)
-    keysplit = split[0].split('.')
-    self.key = [int(x) for x in keysplit]
-    apsw.VFSFile.__init__(self, inheritfromvfsname, split[1], flags)
+    try:
+      split = filename.filename().split(' ', 2)
+      keysplit = split[0].split('.')
+      self.key = [int(x) for x in keysplit]
+      apsw.VFSFile.__init__(self, inheritfromvfsname, split[1], flags)
+    except Exception:
+      pass
 
   def xRead(self, amount, offset):
     encrypted = super(KLBVFSFile, self).xRead(amount, offset)
@@ -247,6 +250,8 @@ def decrypt_worker(pkey, source, table, pack_name, head, size, key1, key2):
 
 def dump_table(dbpath, source, table):
   print("Dumping tables...")
+  print("DBPATH: " + dbpath)
+  
   dstdir = os.path.join(source, table)
   try:
     os.mkdir(dstdir)
@@ -255,15 +260,18 @@ def dump_table(dbpath, source, table):
   db = klb_sqlite(dbpath).cursor()
   #sel = 'select distinct pack_name, head, size, key1, key2 from ' + table
   sel = 'SELECT distinct m_asset_package_mapping.package_key,'+table+'.pack_name, '+table+'.head, '+table+'.size, '+table+'.key1, '+table+'.key2 FROM '+table+' INNER JOIN m_asset_package_mapping ON m_asset_package_mapping.pack_name = '+table+'.pack_name'
-  print(sel)
+  #print(sel)
   
   with mp.Pool() as p:
     results = []
-    f = decrypt_worker
-    for (package_key, pack_name, head, size, k1, k2) in db.execute(sel):
-      r = p.apply_async(
-          f, (package_key, source, table, pack_name, head, size, k1, k2))
-      results.append(r)
+    try:
+      for (package_key, pack_name, head, size, k1, k2) in db.execute(sel):
+        r = p.apply_async(decrypt_worker, (package_key, source, table, pack_name, head, size, k1, k2))
+        results.append(r)  
+    except Exception:
+      print("unknown nonetype exception - continue")
+      pass
+    
     for r in results:
       print("[%s] done" % r.get())
 
