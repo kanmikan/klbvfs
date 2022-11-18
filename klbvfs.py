@@ -77,6 +77,8 @@ class KLBVFS(apsw.VFS):
     apsw.VFS.__init__(self, self.vfsname, self.basevfs)
 
   def xOpen(self, name, flags):
+    print("xopen")
+    print(name);
     return KLBVFSFile(self.basevfs, name, flags)
 
   def xAccess(self, pathname, flags):
@@ -91,6 +93,7 @@ class KLBVFS(apsw.VFS):
 
 class KLBVFSFile(apsw.VFSFile):
   def __init__(self, inheritfromvfsname, filename, flags):
+    print(filename)
     try:
       split = filename.filename().split(' ', 2)
       keysplit = split[0].split('.')
@@ -218,6 +221,7 @@ def decrypt_worker(pkey, source, table, pack_name, head, size, key1, key2):
     pass
   print("Made   : {}".format(dstdir))
   fpath = os.path.join(dstdir, "%s_%d" % (pack_name, head)) # F path is set here
+  print(fpath)
   pkgpath = os.path.join(source, "pkg" + pack_name[:1], pack_name)
   key = [key1, key2, 0x3039]
   try:
@@ -262,18 +266,17 @@ def dump_table(dbpath, source, table):
   sel = 'SELECT distinct m_asset_package_mapping.package_key,'+table+'.pack_name, '+table+'.head, '+table+'.size, '+table+'.key1, '+table+'.key2 FROM '+table+' INNER JOIN m_asset_package_mapping ON m_asset_package_mapping.pack_name = '+table+'.pack_name'
   #print(sel)
   
-  with mp.Pool() as p:
+  with mp.Pool() as pool:
     results = []
     try:
       for (package_key, pack_name, head, size, k1, k2) in db.execute(sel):
-        r = p.apply_async(decrypt_worker, (package_key, source, table, pack_name, head, size, k1, k2))
-        results.append(r)  
+        result = pool.apply_async(decrypt_worker, (package_key, source, table, pack_name, head, size, k1, k2))
+        results.append(result)  
     except Exception:
-      print("unknown nonetype exception - continue")
       pass
     
-    for r in results:
-      print("[%s] done" % r.get())
+    for result in results:
+      print("[%s] done" % result.get())
 
 
 def do_dump(args):
