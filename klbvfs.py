@@ -77,8 +77,6 @@ class KLBVFS(apsw.VFS):
     apsw.VFS.__init__(self, self.vfsname, self.basevfs)
 
   def xOpen(self, name, flags):
-    print("xopen")
-    print(name);
     return KLBVFSFile(self.basevfs, name, flags)
 
   def xAccess(self, pathname, flags):
@@ -93,7 +91,6 @@ class KLBVFS(apsw.VFS):
 
 class KLBVFSFile(apsw.VFSFile):
   def __init__(self, inheritfromvfsname, filename, flags):
-    print(filename)
     try:
       split = filename.filename().split(' ', 2)
       keysplit = split[0].split('.')
@@ -221,7 +218,6 @@ def decrypt_worker(pkey, source, table, pack_name, head, size, key1, key2):
     pass
   print("Made   : {}".format(dstdir))
   fpath = os.path.join(dstdir, "%s_%d" % (pack_name, head)) # F path is set here
-  print(fpath)
   pkgpath = os.path.join(source, "pkg" + pack_name[:1], pack_name)
   key = [key1, key2, 0x3039]
   try:
@@ -254,7 +250,6 @@ def decrypt_worker(pkey, source, table, pack_name, head, size, key1, key2):
 
 def dump_table(dbpath, source, table):
   print("Dumping tables...")
-  print("DBPATH: " + dbpath)
   
   dstdir = os.path.join(source, table)
   try:
@@ -264,7 +259,6 @@ def dump_table(dbpath, source, table):
   db = klb_sqlite(dbpath).cursor()
   #sel = 'select distinct pack_name, head, size, key1, key2 from ' + table
   sel = 'SELECT distinct m_asset_package_mapping.package_key,'+table+'.pack_name, '+table+'.head, '+table+'.size, '+table+'.key1, '+table+'.key2 FROM '+table+' INNER JOIN m_asset_package_mapping ON m_asset_package_mapping.pack_name = '+table+'.pack_name'
-  #print(sel)
   
   with mp.Pool() as pool:
     results = []

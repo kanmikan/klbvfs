@@ -67,18 +67,68 @@ def orderSuits(args):
         #ignorar errores cuando no existe la carpeta, o alguna otra tonteria.
         pass
 
-
-#UTILIDAD: busca un pack en una tabla y lo desencripta
-def decrypt_on(table, pack_name):
+def unpack_character(character_id, output):
+  import json
   source = os.path.abspath(".")
-  destination = os.path.join(os.path.join(source, table), pack_name)
+  destination = os.path.join(os.path.join(source, output), names[int(character_id)])
+  try:
+    os.makedirs(destination)
+  except FileExistsError:
+    pass
+  
+  masterdb = klb_sqlite(find_db('masterdata', source)).cursor()
+  assetsdb = klb_sqlite(find_db('asset_a_en', source)).cursor()
+  try:
+    json_dictionary = json.load(open('./m_dictionary.json')) #entonces uso un json extraido usando la gui de SQLite
+  except FileNotFoundError:
+    print("Necesitas extraer el m_dictionary a un archivo json (m_dictionary.json)")
+    pass
+  
+  for (id, member_m_id, name, thumbnail_image_asset_path, model_asset_path) in masterdb.execute("select id, member_m_id, name, thumbnail_image_asset_path, model_asset_path from m_suit WHERE member_m_id == :character_id", {'character_id': character_id}):
+    filtered_json = json.dumps([element for element in json_dictionary if element['id'] == name.split(".")[1]])  
+    item_full_name = re.sub('\W+',' ', json.loads(filtered_json)[0]["message"]).strip()
+    
+    print("%s - %s - %s - %s" % (id, item_full_name, thumbnail_image_asset_path, model_asset_path))
+    
+    texture_asset_query = "select asset_path, pack_name, head, size, key1, key2 from texture WHERE asset_path == :path"
+    for (asset_path, pack_name, head, size, key1, key2) in assetsdb.execute(texture_asset_query, {'path': thumbnail_image_asset_path}):
+      destination_path = os.path.join(destination, item_full_name)
+      try:
+        os.makedirs(destination_path)
+      except FileExistsError:
+        pass
+      decrypt(pack_name, head, size, key1, key2, destination_path)
+    
+    model_asset_query = "select DISTINCT m_asset_package_mapping.package_key, member_model.pack_name, member_model.head, member_model.size, member_model.key1, member_model.key2 from member_model INNER JOIN m_asset_package_mapping ON m_asset_package_mapping.pack_name = member_model.pack_name where m_asset_package_mapping.package_key == :package_key"
+    destination_path = os.path.join(destination, item_full_name + "/model")
+    try:
+      os.makedirs(destination_path)
+    except FileExistsError:
+      pass
+    
+    with mp.Pool() as pool:
+      results = []
+      try:
+        for (package_key, pack_name, head, size, key1, key2) in assetsdb.execute(model_asset_query, {'package_key': "suit:" + str(id)}):
+          print("%s - %s - %s - %s - %s - %s" % (package_key, pack_name, head, size, key1, key2))
+          results.append(pool.apply_async(decrypt, (pack_name, head, size, key1, key2, destination_path)))  
+      except Exception:
+        print("Error en el pool desencriptando los modelos.")
+        pass
+      for result in results:
+        print("[%s] done" % result.get())
+
+
+def decrypt_on(table, pack_name, output):
+  source = os.path.abspath(".")
+  destination = os.path.join(os.path.join(source, output + "/" + table), pack_name)
   try:
     os.makedirs(destination)
   except FileExistsError:
     pass
 
   assetsdb = klb_sqlite(find_db('asset_a_en', source)).cursor()
-  asset_query = "select asset_path, pack_name, head, size, key1, key2 from " + table + " WHERE pack_name == '" + pack_id + "'"
+  asset_query = "select asset_path, pack_name, head, size, key1, key2 from " + table + " WHERE pack_name == '" + pack_name + "'"
 
   for (asset_path, pack_name, head, size, key1, key2) in assetsdb.execute(asset_query):
     decrypt(pack_name, head, size, key1, key2, destination)
@@ -133,7 +183,18 @@ def tests(args):
       except FileExistsError:
         pass
       decrypt(pack_name, head, size, key1, key2, destination_path)
-    
+
+### TOOLS ACA ###
+
+#UTILIDAD: extrae un pack especifico en una tabla EJEMPLO: d member_model 108mqo
+def decrypt_element(args):
+  decrypt_on(args.table, args.pack_name, args.output)
+
+#UTILIDAD: extrae todos los trajes de x personaje, junto con un thumbnail EJEMPLO: chu 101 modelos_extraidos
+def charaunpack(args):
+  unpack_character(args.character_id, args.output)
+
+#################
 
 if __name__ == "__main__":
   import argparse
@@ -149,6 +210,19 @@ if __name__ == "__main__":
   test = sub.add_parser('test', aliases=['tst'], help=test_help)
   test.add_argument('directory', nargs='?', help=test_help, default='.')
   test.set_defaults(func=tests)
+  
+  chu_help = 'charaunpack character_id'
+  chu = sub.add_parser('charaunpack', aliases=['chu'], help=chu_help)
+  chu.add_argument('character_id', nargs='?', help=chu_help, default='1')
+  chu.add_argument('output', nargs='?', help=chu_help, default='unpacked_character')
+  chu.set_defaults(func=charaunpack)
+  
+  dcr_help = 'decrypt_on table pack_name'
+  dcr = sub.add_parser('decrypt', aliases=['d'], help=dcr_help)
+  dcr.add_argument('table', nargs='?', help=dcr_help, default='textures')
+  dcr.add_argument('pack_name', nargs='?', help=dcr_help, default='none')
+  dcr.add_argument('output', nargs='?', help=dcr_help, default='decrypted_output')
+  dcr.set_defaults(func=decrypt_element)
   
   args = parser.parse_args(sys.argv[1:])
   if 'func' not in args:
