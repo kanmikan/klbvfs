@@ -158,10 +158,9 @@ def tests(args):
       #print(data[c:c+1])
       #print(offset)
       #print(lenght)
-   
-      if c - offset + lenght < offset:
+      if (c - offset + lenght) < c:
         value = data[c-offset: c-offset+lenght]
-        #print(value)
+        print(value)
         data[c:c+1] = value
         data[c+lenght:c+lenght+2] = data[0:0] #mi hack para eliminar 2 bytes...
       else:
