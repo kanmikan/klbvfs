@@ -1,3 +1,21 @@
+# LLSIFAS KLBVFS EXPERIMENTAL TOOLS
+conjunto de herramientas experimentales para extraer y ordenar los datos sacados del juego, scripts experimentales para aprender como funciona el vfs del sifas, etc.
+
+![chu 101 mikan_models](https://images2.imgbox.com/81/f4/HwQTc7Bn_o.png)
+
+## TODO
+- [ ] actualizar automáticamente los packs, masterdata.db y assets*.db con las nuevas claves sacadas del shared_prefs, directamente del dump.
+- [ ] mas comandos para extraer datos condicionalmente
+- [ ] extraccion y ordenamiento de stages
+
+## CHEATSHEET DE COMANDOS (NO ES UN PROCEDIMIENTO)
+- adb pull /sdcard/Android/data/com.klab.lovelive.allstars.global com.klab.lovelive.allstars.global
+- adb backup -shared com.klab.lovelive.allstars.global -f sifas_data.ab
+- java -jar abe.jar sifas_data.ab sifas_data.tar
+- ./klbvfs.py decrypt *.db_*.db
+- ./klbvfs.py dump --types=member_model
+
+# INFORMACION ORIGINAL DE KLBVFS
 This is a proof-of-concept implementation of klab's encrypted sqlite3 vfs (virtual file system). It can be used to query encrypted databases in your
 `/data/data/com.klab.lovelive.allstars/files/files` directory
 

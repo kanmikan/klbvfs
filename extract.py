@@ -43,6 +43,15 @@ def unpack_all_assets(source_folder : str, destination_folder : str):
                     with open(f"{mesh.name}.obj", "wt", newline = "") as f:
                         # newline = "" is important
                         f.write(mesh.export())
+                
+                #copypaste of the renderer export method here: https://pypi.org/project/UnityPy/#important-object-types
+                if obj.type.name == "Renderer":
+                    mesh_renderer : Renderer = obj.read()
+                    if mesh_renderer.m_GameObject:
+                        game_object = mesh_renderer.m_GameObject.read()
+                        export_dir = os.path.join(destination_folder, game_object.name)
+                    mesh_renderer.export(export_dir)
+                
                 if obj.type.name == "Font":
                     font : Font = obj.read()
                     if font.m_FontData:
@@ -54,4 +63,4 @@ def unpack_all_assets(source_folder : str, destination_folder : str):
                 
 
             
-unpack_all_assets(".",".")
+#unpack_all_assets(".",".")
