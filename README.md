@@ -1,12 +1,16 @@
 # LLSIFAS KLBVFS EXPERIMENTAL TOOLS
 conjunto de herramientas experimentales para extraer y ordenar los datos sacados del juego, scripts experimentales para aprender como funciona el vfs del sifas, etc.
 
-![chu 101 mikan_models](https://images2.imgbox.com/81/f4/HwQTc7Bn_o.png)
+![tools.py chu 101 mikan_models](https://images2.imgbox.com/81/f4/HwQTc7Bn_o.png)
+
+![tools.py test](https://images2.imgbox.com/e3/0c/Di3Y8YU6_o.png)
 
 ## TODO
+- [x] extraccion y ordenamiento de stages
+- [ ] comando para extraer stages filtrado por generacion/subunidad
+- [ ] (funcion decrypt) comprobar que el archivo existente no sea un placeholder de 0kb y reescribir en tal caso
+- [ ] copiar los packs acb/awb de m_asset_sound junto con los stages ordenados
 - [ ] actualizar automáticamente los packs, masterdata.db y assets*.db con las nuevas claves sacadas del shared_prefs, directamente del dump.
-- [ ] mas comandos para extraer datos condicionalmente
-- [ ] extraccion y ordenamiento de stages
 
 ## CHEATSHEET DE COMANDOS (NO ES UN PROCEDIMIENTO)
 - adb pull /sdcard/Android/data/com.klab.lovelive.allstars.global com.klab.lovelive.allstars.global

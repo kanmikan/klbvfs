@@ -24,7 +24,6 @@ pass
 
 ###
 
-
 def decrypt(pack_name, head, size, key1, key2, output):
   source = os.path.abspath(".")
   destination = os.path.join(output, "%s_%d" % (pack_name, head)) 
@@ -44,6 +43,9 @@ def decrypt(pack_name, head, size, key1, key2, output):
       if buffer.startswith(b'UnityFS'):
         mimetype = "application/unityfs"
         extension = ".unity3d"
+      elif buffer.startswith(b'\x89PNG'):
+        mimetype = "image/png"
+        extension = ".png"
       else:
         #print(buffer)
         pass
@@ -53,8 +55,13 @@ def decrypt(pack_name, head, size, key1, key2, output):
     key[2] = 0x3039
     pkg.seek(head)
     print("[%s] decrypting to %s (%s)" % (destination, extension, mimetype))
-    with open(destination + extension, 'wb+') as dst:
-      shutil.copyfileobj(pkg, dst, size)
+    
+    if os.path.exists(destination + extension):
+      print("File already created - Skipping")
+      pass
+    else:
+      with open(destination + extension, 'wb+') as dst:
+        shutil.copyfileobj(pkg, dst, size)
     pkg.close()
     return destination + extension
     
@@ -120,10 +127,27 @@ def decrypt_on(table, pack_name, output):
     pass
   assetsdb = klb_sqlite(find_db('asset_a_en', source)).cursor()
   
-  asset_query = f"select asset_path, pack_name, head, size, key1, key2 from {table} WHERE pack_name == '{pack_name}'"
+  asset_query = f"SELECT asset_path, pack_name, head, size, key1, key2 FROM {table} WHERE pack_name == '{pack_name}'"
   for (asset_path, pack_name, head, size, key1, key2) in assetsdb.execute(asset_query):
     result = decrypt(pack_name, head, size, key1, key2, destination)
   return result
+
+
+def decrypt_asset_on(table, asset_id, output):
+  source = os.path.abspath(".")
+  destination = os.path.join(source, output)
+  try:
+    os.makedirs(destination)
+  except FileExistsError:
+    pass
+  assetsdb = klb_sqlite(find_db('asset_a_en', source)).cursor()
+  asset_query = "SELECT asset_path, pack_name, head, size, key1, key2 FROM " + table + " WHERE asset_path == '" + asset_id.replace("'","''") + "'" #no tocar esto......
+  print(asset_query)
+  
+  for (asset_path, pack_name, head, size, key1, key2) in assetsdb.execute(asset_query):
+    result = decrypt(pack_name, head, size, key1, key2, destination)
+  return result
+
 
 def unpack_advscript(filepath, output):
   source = os.path.abspath(".")
@@ -149,64 +173,71 @@ def unpack_advscript(filepath, output):
         original_value = value[:c_pos]
         original_value_length = len(original_value)
         extra_length = length - original_value_length
-        
         buff = original_value
         for i in range(extra_length-1):
           buff = buff + original_value
-        
         data[c:c+1] = original_value + buff[:extra_length]
         data[c+length:c+length+2] = data[0:0]
-        
- 
     with open(out, 'wb+') as f:
       f.write(data)
 
 
-#EXPERIMENTAL: descomprimir el texto de un adv_script a UTF-8... probablemente...
+#EXPERIMENTAL: test
 def tests(args):
+  source = os.path.abspath(".")
+  destination = os.path.join(source, "unpacked_stages")
+  try:
+    os.makedirs(destination)
+  except FileExistsError:
+    pass
+
   masterdb = klb_sqlite(find_db('masterdata', args.source)).cursor()
   assetsdb = klb_sqlite(find_db('asset_a_en', args.source)).cursor()
-  json_dictionary = json.load(open('./m_dictionary.json'))
-  
-  #m_live da el nombre y el id
-  #m_live_mv da el live_stage_master_id
-  #m_asset_package_mapping en assets_db da los packs
-  
-  query = "select DISTINCT m_live.live_id, m_live.name, m_live_mv.live_stage_master_id from m_live INNER JOIN m_live_mv ON m_live_mv.live_id = m_live.live_id where m_live.is_2d_live == 0"
-  for (live_id, name, live_stage_master_id) in masterdb.execute(query):
-    print("%s - %s" % (getDictionaryValue(name), live_stage_master_id))
+
+  query = "SELECT DISTINCT m_live_mv.live_id, m_live_mv.live_stage_master_id, m_live_mv.live_3d_asset_master_id, m_live.name, m_live.jacket_asset_path, m_live_3d_asset.timeline, m_live_3d_asset.stage_effect_asset_path, m_live_3d_asset.live_prop_skeleton_asset_path, m_live_3d_asset.shader_variant_asset_path FROM m_live_mv INNER JOIN m_live ON m_live.live_id = m_live_mv.live_id INNER JOIN m_live_3d_asset ON m_live_3d_asset.id = m_live_mv.live_3d_asset_master_id"
+  for (live_id, live_stage_master_id, live_3d_asset_master_id, name, jacket_asset_path, timeline, stage_effect_asset_path, live_prop_skeleton_asset_path, shader_variant_asset_path) in masterdb.execute(query):
+    
+    song_name = getDictionaryValue(name)
+    print(f"{live_id} - {live_stage_master_id} - {live_3d_asset_master_id} - {song_name} - {jacket_asset_path} - {timeline} - {stage_effect_asset_path} - {live_prop_skeleton_asset_path} - {shader_variant_asset_path}")
+    
+    destination_path = os.path.join(destination, song_name)
+    stage_destination_path = os.path.join(destination_path, "stage_models")
+    try:
+      os.makedirs(stage_destination_path)
+    except FileExistsError:
+      pass
+    
+    #extraer assets independientes (timeline, stage_effect_asset_path, etc)
+    decrypt_asset_on("texture", jacket_asset_path, destination_path) #cover
+    decrypt_asset_on("live_timeline", timeline, os.path.join(destination_path, "timeline"))
+    decrypt_asset_on("stage_effect", stage_effect_asset_path, os.path.join(destination_path, "stage_effects"))
+    #decrypt_asset_on("live_prop_skeleton", live_prop_skeleton_asset_path, os.path.join(destination_path, "live_prop_models")) #ejemplo: el megáfono de setsuna, NULL si no hay props.
+    #decrypt_asset_on("shader", live_prop_skeleton_asset_path, os.path.join(destination_path, "live_shader")) #NULL si no hay custom shaders
+    
+    #extraer stages
+    stage_asset_query = "SELECT DISTINCT m_asset_package_mapping.package_key, stage.pack_name, stage.head, stage.size, stage.key1, stage.key2 from stage INNER JOIN m_asset_package_mapping ON m_asset_package_mapping.pack_name = stage.pack_name WHERE m_asset_package_mapping.package_key == :package_key"
+    for (package_key, pack_name, head, size, key1, key2) in assetsdb.execute(stage_asset_query, {'package_key': "live:" + str(live_3d_asset_master_id)}):
+      print(f"{package_key} - {pack_name} - {head} - {size} - {key1} - {key2}")      
+      decrypt(pack_name, head, size, key1, key2, stage_destination_path)
+
+
 
 ### TOOLS ACA ###
 #UTILIDAD: desenpaqueta un advscript a texto plano
-def advscriptunpack(args):
+def advscript_unpack(args):
   advfile = decrypt_on("adv_script", args.pack_name, args.output)
   unpack_advscript(advfile, advfile + "_unpacked.txt")
+
 
 #UTILIDAD: extrae un pack especifico en una tabla EJEMPLO: d member_model 108mqo
 def decrypt_element(args):
   decrypt_on(args.table, args.pack_name, args.output)
 
+
 #UTILIDAD: extrae todos los trajes de x personaje, junto con un thumbnail EJEMPLO: chu 101 modelos_extraidos
-def charaunpack(args):
+def chara_unpack(args):
   unpack_character(args.character_id, args.output)
   
-#UTILIDAD: ordenar carpetas (despues de la extraccion usando ./klbvfs.py dump --types=member_model) añadiendo el nombre del personaje al que pertenecen al principio.
-def orderSuits(args):
-  masterdb = klb_sqlite(find_db('masterdata', args.directory)).cursor()
-  dirlist = os.listdir("./member_model/suit/")
-
-  for cdir in dirlist:
-    #SQL query a la base de datos pidiendo la celda con la info del id del traje (el nombre de la carpeta)
-    master_query = "select id, member_m_id from m_suit WHERE id == " + cdir
-    #para cada traje encontrado (debería ser solo uno pero bueh) renombrar la carpeta añadiendo al principio el nombre del personaje.
-    for (id, member_m_id) in masterdb.execute(master_query):
-      try:
-        print(names[member_m_id])
-        os.rename("./member_model/suit/" + cdir + "/", "./member_model/suit/" + names[member_m_id] + "_" + cdir + "/")
-      except Exception:
-        #ignorar errores cuando no existe la carpeta, o alguna otra tonteria.
-        pass
-
 #################
 
 if __name__ == "__main__":
@@ -219,16 +250,11 @@ if __name__ == "__main__":
   test.add_argument('source', nargs='?', help=test_help, default='.')
   test.set_defaults(func=tests)
   
-  osuits_help = 'orderSuits'
-  osuits = sub.add_parser('orderSuits', aliases=['osuits'], help=osuits_help)
-  osuits.add_argument('directory', nargs='?', help=osuits_help, default='.')
-  osuits.set_defaults(func=orderSuits)
-  
   chu_help = 'charaunpack character_id'
   chu = sub.add_parser('charaunpack', aliases=['chu'], help=chu_help)
   chu.add_argument('character_id', nargs='?', help=chu_help, default='1')
   chu.add_argument('output', nargs='?', help=chu_help, default='unpacked_character')
-  chu.set_defaults(func=charaunpack)
+  chu.set_defaults(func=chara_unpack)
   
   dcr_help = 'decrypt table pack_name output'
   dcr = sub.add_parser('decrypt', aliases=['d'], help=dcr_help)
@@ -241,7 +267,7 @@ if __name__ == "__main__":
   adv = sub.add_parser('advunpack', aliases=['advu'], help=adv_help)
   adv.add_argument('pack_name', nargs='?', help=adv_help, default='none')
   adv.add_argument('output', nargs='?', help=adv_help, default='decrypted_output')
-  adv.set_defaults(func=advscriptunpack)
+  adv.set_defaults(func=advscript_unpack)
   
   args = parser.parse_args(sys.argv[1:])
   if 'func' not in args:
