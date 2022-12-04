@@ -39,7 +39,7 @@ def decrypt(pack_name, head, size, key1, key2, output):
     mimetype = magic.from_buffer(buffer, mime=True)
     extension = mimetypes.guess_extension(magic.from_buffer(buffer, mime=True))
     
-    if mimetype == 'application/octet-stream':
+    if mimetype == 'application/octet-stream' or mimetype == 'text/plain':
       if buffer.startswith(b'UnityFS'):
         mimetype = "application/unityfs"
         extension = ".unity3d"
