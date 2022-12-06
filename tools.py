@@ -35,7 +35,7 @@ def decrypt(pack_name, head, size, key1, key2, output):
   try:
     pkg = codecs.open(pkgpath, mode='rb', encoding='klbvfs', errors=key) #abrir el archivo pkgx encriptado
     pkg.seek(head) #ir a la posicion que indica el head
-    buffer = pkg.read(8)
+    buffer = pkg.read(1024)
     mimetype = magic.from_buffer(buffer, mime=True)
     extension = mimetypes.guess_extension(magic.from_buffer(buffer, mime=True))
     
@@ -222,7 +222,7 @@ def tests(args):
 
 
 
-### TOOLS ACA ###
+### TOOLS ACA ### \
 #UTILIDAD: desenpaqueta un advscript a texto plano
 def advscript_unpack(args):
   advfile = decrypt_on("adv_script", args.pack_name, args.output)
