@@ -7,7 +7,7 @@ conjunto de herramientas experimentales para extraer y ordenar los datos sacados
 
 ## TODO
 - [x] extraccion y ordenamiento de stages
-- [ ] comando para extraer stages filtrado por generacion/subunidad
+- [x] comando para extraer stages filtrado por generacion/subunidad
 - [ ] (funcion decrypt) comprobar que el archivo existente no sea un placeholder de 0kb y reescribir en tal caso
 - [ ] copiar los packs acb/awb de m_asset_sound junto con los stages ordenados
 - [ ] actualizar automáticamente los packs, masterdata.db y assets*.db con las nuevas claves sacadas del shared_prefs, directamente del dump.
