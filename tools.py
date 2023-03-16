@@ -20,7 +20,7 @@ try:
   json_dictionary = json.load(open('./m_dictionary.json'))
 except FileNotFoundError:
   print("[Warning] Necesitas extraer el m_dictionary a un archivo json (m_dictionary.json)")
-pass
+  pass
 
 ###
 
@@ -198,18 +198,20 @@ def unpack_stage_from(group_id, output):
   for (live_id, live_stage_master_id, live_3d_asset_master_id, name, jacket_asset_path, original_deck_name, timeline, stage_effect_asset_path, live_prop_skeleton_asset_path, shader_variant_asset_path) in masterdb.execute(query):
     
     song_name = getDictionaryValue(name)
-    print(f"{live_id} - {live_stage_master_id} - {live_3d_asset_master_id} - {song_name} - {jacket_asset_path} - {original_deck_name} - {timeline} - {stage_effect_asset_path} - {live_prop_skeleton_asset_path} - {shader_variant_asset_path}")
-    
+    #print(f"{live_id} - {live_stage_master_id} - {live_3d_asset_master_id} - {song_name} - {jacket_asset_path} - {original_deck_name} - {timeline} - {stage_effect_asset_path} - {live_prop_skeleton_asset_path} - {shader_variant_asset_path}")
     destination_path = os.path.join(destination, song_name)
     stage_destination_path = os.path.join(destination_path, "stage_models")
+    chara_timeline_destination_path = os.path.join(destination_path, "live_timeline")
+    
     try:
       os.makedirs(stage_destination_path)
+      os.makedirs(chara_timeline_destination_path)
     except FileExistsError:
       pass
     
     #extraer assets independientes (timeline, stage_effect_asset_path, etc)
     decrypt_asset_on("texture", jacket_asset_path, destination_path) #cover
-    decrypt_asset_on("live_timeline", timeline, os.path.join(destination_path, "timeline"))
+    #decrypt_asset_on("live_timeline", timeline, os.path.join(destination_path, "stage_timeline")) #deprecated
     decrypt_asset_on("stage_effect", stage_effect_asset_path, os.path.join(destination_path, "stage_effects"))
     #decrypt_asset_on("live_prop_skeleton", live_prop_skeleton_asset_path, os.path.join(destination_path, "live_prop_models")) #ejemplo: el megáfono de setsuna, NULL si no hay props.
     #decrypt_asset_on("shader", live_prop_skeleton_asset_path, os.path.join(destination_path, "live_shader")) #NULL si no hay custom shaders
@@ -219,17 +221,62 @@ def unpack_stage_from(group_id, output):
     for (package_key, pack_name, head, size, key1, key2) in assetsdb.execute(stage_asset_query, {'package_key': "live:" + str(live_3d_asset_master_id)}):
       print(f"{package_key} - {pack_name} - {head} - {size} - {key1} - {key2}")      
       decrypt(pack_name, head, size, key1, key2, stage_destination_path)
+    
+    #extraer coreografia/s (character timelines)
+    stage_asset_query = "SELECT DISTINCT m_asset_package_mapping.package_key, live_timeline.pack_name, live_timeline.head, live_timeline.size, live_timeline.key1, live_timeline.key2 from live_timeline INNER JOIN m_asset_package_mapping ON m_asset_package_mapping.pack_name = live_timeline.pack_name WHERE m_asset_package_mapping.package_key == :package_key"
+    for (package_key, pack_name, head, size, key1, key2) in assetsdb.execute(stage_asset_query, {'package_key': "live:" + str(live_3d_asset_master_id)}):
+      print(f"{package_key} - {pack_name} - {head} - {size} - {key1} - {key2}")      
+      decrypt(pack_name, head, size, key1, key2, chara_timeline_destination_path)
 
 
-#EXPERIMENTAL: test
+#EXPERIMENTAL: tests (ignorar)
 def tests(args):
-  unpack_stage_from("aqours", args.source)
+  source = os.path.abspath(".")
+  destination = os.path.join(args.source, args.output, "test")
+  group_id = "aqours"
+  
+  try:
+    os.makedirs(destination)
+  except FileExistsError:
+    pass
 
+  masterdb = klb_sqlite(find_db('masterdata', args.source)).cursor()
+  assetsdb = klb_sqlite(find_db('asset_a_en', args.source)).cursor()
 
-### TOOLS ACA ### \
-def taskfunc(args):
-  #adv_graphic, resource: hace referencia a un asset de la tabla texture.
-  decrypt_asset_on("texture", "+-c", "decrypted_output")
+  query = "SELECT DISTINCT m_live_mv.live_id, m_live_mv.live_stage_master_id, m_live_mv.live_3d_asset_master_id, m_live.name, m_live.jacket_asset_path, m_live.original_deck_name, m_live_3d_asset.timeline, m_live_3d_asset.stage_effect_asset_path, m_live_3d_asset.live_prop_skeleton_asset_path, m_live_3d_asset.shader_variant_asset_path FROM m_live_mv INNER JOIN m_live ON m_live.live_id = m_live_mv.live_id INNER JOIN m_live_3d_asset ON m_live_3d_asset.id = m_live_mv.live_3d_asset_master_id WHERE m_live.original_deck_name == 'k.m_dic_group_name_" + group_id + "' OR m_live.original_deck_name == 'k.m_dic_member_name_" + group_id + "'"
+  for (live_id, live_stage_master_id, live_3d_asset_master_id, name, jacket_asset_path, original_deck_name, timeline, stage_effect_asset_path, live_prop_skeleton_asset_path, shader_variant_asset_path) in masterdb.execute(query):
+    
+    song_name = getDictionaryValue(name)
+    #print(f"{live_id} - {live_stage_master_id} - {live_3d_asset_master_id} - {song_name} - {jacket_asset_path} - {original_deck_name} - {timeline} - {stage_effect_asset_path} - {live_prop_skeleton_asset_path} - {shader_variant_asset_path}")
+    destination_path = os.path.join(destination, song_name)
+    stage_destination_path = os.path.join(destination_path, "stage_models")
+    chara_timeline_destination_path = os.path.join(destination_path, "live_timeline")
+    
+    try:
+      os.makedirs(stage_destination_path)
+      os.makedirs(chara_timeline_destination_path)
+    except FileExistsError:
+      pass
+    
+    #extraer assets independientes (timeline, stage_effect_asset_path, etc)
+    decrypt_asset_on("texture", jacket_asset_path, destination_path) #cover
+    #decrypt_asset_on("live_timeline", timeline, os.path.join(destination_path, "stage_timeline")) #deprecated
+    decrypt_asset_on("stage_effect", stage_effect_asset_path, os.path.join(destination_path, "stage_effects"))
+    #decrypt_asset_on("live_prop_skeleton", live_prop_skeleton_asset_path, os.path.join(destination_path, "live_prop_models")) #ejemplo: el megáfono de setsuna, NULL si no hay props.
+    #decrypt_asset_on("shader", live_prop_skeleton_asset_path, os.path.join(destination_path, "live_shader")) #NULL si no hay custom shaders
+    
+    #extraer stages
+    stage_asset_query = "SELECT DISTINCT m_asset_package_mapping.package_key, stage.pack_name, stage.head, stage.size, stage.key1, stage.key2 from stage INNER JOIN m_asset_package_mapping ON m_asset_package_mapping.pack_name = stage.pack_name WHERE m_asset_package_mapping.package_key == :package_key"
+    for (package_key, pack_name, head, size, key1, key2) in assetsdb.execute(stage_asset_query, {'package_key': "live:" + str(live_3d_asset_master_id)}):
+      print(f"{package_key} - {pack_name} - {head} - {size} - {key1} - {key2}")      
+      decrypt(pack_name, head, size, key1, key2, stage_destination_path)
+    
+    #extraer coreografia/s (character timelines)
+    stage_asset_query = "SELECT DISTINCT m_asset_package_mapping.package_key, live_timeline.pack_name, live_timeline.head, live_timeline.size, live_timeline.key1, live_timeline.key2 from live_timeline INNER JOIN m_asset_package_mapping ON m_asset_package_mapping.pack_name = live_timeline.pack_name WHERE m_asset_package_mapping.package_key == :package_key"
+    for (package_key, pack_name, head, size, key1, key2) in assetsdb.execute(stage_asset_query, {'package_key': "live:" + str(live_3d_asset_master_id)}):
+      print(f"{package_key} - {pack_name} - {head} - {size} - {key1} - {key2}")      
+      decrypt(pack_name, head, size, key1, key2, chara_timeline_destination_path)
+
 
 
 #UTILIDAD: desenpaqueta un advscript a texto plano
@@ -264,12 +311,8 @@ if __name__ == "__main__":
   test_help = 'codigo experimental'
   test = sub.add_parser('test', aliases=['tst'], help=test_help)
   test.add_argument('source', nargs='?', help=test_help, default='.')
+  test.add_argument('output', nargs='?', help=test_help, default='test')
   test.set_defaults(func=tests)
-  
-  task_help = 'ejecutar algo rápidamente'
-  task = sub.add_parser('task', aliases=['tsk'], help=task_help)
-  task.add_argument('source', nargs='?', help=task_help, default='.')
-  task.set_defaults(func=taskfunc)
   
   chu_help = 'charaunpack character_id'
   chu = sub.add_parser('charaunpack', aliases=['chu'], help=chu_help)
@@ -278,9 +321,9 @@ if __name__ == "__main__":
   chu.set_defaults(func=chara_unpack)
   
   lvu_help = 'liveunpack group_id'
-  lvu = sub.add_parser('liveunpack', aliases=['lvu'], help=chu_help)
-  lvu.add_argument('group_id', nargs='?', help=chu_help, default='muse')
-  lvu.add_argument('output', nargs='?', help=chu_help, default='unpacked_stages')
+  lvu = sub.add_parser('liveunpack', aliases=['lvu'], help=lvu_help)
+  lvu.add_argument('group_id', nargs='?', help=lvu_help, default='muse')
+  lvu.add_argument('output', nargs='?', help=lvu_help, default='unpacked_stages')
   lvu.set_defaults(func=stage_unpack)
   
   dcr_help = 'decrypt table pack_name output'
